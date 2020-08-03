@@ -1,0 +1,351 @@
+:source-highlighter: coderay
+
+= TheSimulator QuickStart Guide =
+
+This short tutorial covers the installation instructions and a simple demonstration of the simulators capabilities.
+
+== Installation ==
+=== Requirements ===
+To compile and run TheSimulator, you will need
+
+* CMake 3.15 or later,
+* any compiler suite capabile of compiling C++17 with natural dependency paths (e.g. Visual Studio 17 or later, GCC 9.0 or later, LLVM Clang 9.0 or later, etc.),
+* `python` (tested with both Python 2.7 and 3.6).
+
+Furthermore,
+
+* if using Windows, have Python installed with its C headers,
+* if using Linux, have `python-all` (or at least `python-distutils` and `python-dev`),
+* if using Mac, have MacOS 10.15+ and Xcode 11.0+.
+
+The following are also recommended
+
+* a text editor with XML and Python support,
+* Python 3.0 or later (note that if you use Python 3 you will need the `python3-*` equivalents of the abovementioned packages for Linux).
+
+NOTE: TheSimulator already comes with embedded Python 3.0 support. However, this environment can only be invoked from the simulation binaries and is thus unlikely to be useful for prior testing.
+
+There are no external dependencies of the simulator itself, apart from `pybind11` that is directly a submodule of its git repository (so don't forget to clone with `--recurse-submodules` or do `git submodule init && git submodule update` if you forgot).
+
+=== How to install TheSimulator on your machine ===
+. Clone the git repository into a new directory in your local filesystem. Throughout this tutorial, we will assume that the git repository has been cloned into a folder called `thesimulator` (so that the readme file can be found under `thesimulator\README.md`) and that the cmake files together with the build outputs can be found under `thesimulator\build`
+. Enter the directory the repository has been cloned into 
+
+    cd ./thesimulator
+
+. Make a new directory for the build outputs, separate from the source files for our convenience
+
+    mkdir build
+    cd build
+
+. Execute the cmake configuration and generation steps
+
+    cmake ../
+
+. Upon successful `vcxprox`/`makefile` generation, compile the simulator's sources
+
+    cmake --build .
+
+. Search the build directory for the output executable (should be called `TheSimulator` but might depend on the compiler suite used). You can test it by invoking
+
+    ./TheSimulator --help
+
+Steps 4 and 5 can alternatively be performed from CMake GUI.
+
+== A Crash Guide to simulation with TheSimulator ==
+TheSimulator uses XML files for simulation configuration. The XML configuration file sets the simulation properties (i.e. how long the simulation should run for, what the output files are) and allows the addition of agents into the simulation environment. TheSimulator already comes with a small database of fairly versatile agents. Additional custom agents can then be added either by referencing their Python implementation or compiling their C++ implementation with the simulator itself.
+
+The following is a configuration of our minimal example, _Doob's trader_. The simulation environment for the Doob's trader example consists of a price-time matched exchange, a trade logger that logs all occuring trades to the console output, a martingale market maker (in our particular case an symmetric instance of `RandomWalkMarketMakerAgent`) and an _a,b_-Doob's trader (a configured instance of a `DoobAgent`) -- a trader that only trades to profit from price upcrossings from _a_ to _b_. The Doob's Upcrossing Lemma then gives an upper bound on the expected total earnings of our trader by time _n_.
+
+WARNING: The following is a valid XML only after the comments have been removed. See `/doc/Simulation.xml` for a working example.
+
+.Simulation.xml
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<Simulation start="0" duration="1000001">
+    <ExchangeAgent                      
+    <!-- Adds a new exchange agent - an agent representing the book of one symbol at an exchange -->
+        
+        name="MARKET"                   
+        <!-- - sets a unique identifier for the exchange agent -->
+        
+        algorithm="PriceTime"           
+        <!--
+            - specifies the algorithm that will be used for matching of
+            the incoming marketable orders against the resting orders
+        -->
+        />
+
+    <RandomWalkMarketMakerAgent         
+    <!-- Adds an agent that provides liquidity at a price following a random walk process -->
+        
+        name="TRADER_MARKET_MAKER"      
+        exchange="MARKET"               
+        <!-- - specifies which exchange our market maker operates at -->
+
+        halfSpread="0.01"               
+        <!-- - configures the spread from the random-walked midpoint -->
+        
+        depth="1"                       
+        <!-- - sets the L1 depth of the LOB at the best market-made prices -->
+
+        p="0.5"                         
+        <!-- - sets the probability of a price increment -->
+        
+        priceStep="0.1"                 
+        <!-- - sets the granularity of price increments  -->
+        
+        timeStep="1000"
+
+        init="100"                      
+        <!-- - configures the initial price -->
+        
+        lb="50"                         
+        <!--
+            - configures the lower price bound - a price at which the random walk will
+            stop if hit (preserves the martingale property)
+        -->
+        
+        ub="150"                        
+        <!--
+            - configures the upper price bound - a price at which the random walk will
+            stop if hit (preserves the martingale property)
+        -->
+        />
+    
+    <DoobAgent
+        name="TRADER_DOOB"
+        a="99"                          
+        <!-- - sets the lower bound for upcrossings -->
+        
+        b="101"                         
+        <!-- - sets the upper bound for upcrossings -->
+        
+        tradeUnit="1"                   
+        <!-- 
+            specifies the maximum quantity (more specfically, the size of the market order
+             to be submitted) to be bought in anticipation of an upcrossing
+        -->
+        />
+
+    <TradeLogAgent                      
+    <!-- an agent to log the trades -->
+        
+        name="LOGGER_TRADE"
+        exchange="MARKET"
+        />
+</Simulation>
+----
+
+Once the `Simulation.xml` file is ready, we can run the simulation by calling
+
+[source,bash]
+----
+./TheSimulator Simulation.xml
+----
+on GNU-based systems, or
+[source,bash]
+----
+.\TheSimulator.exe Simulation.xml
+----
+on Windows.
+
+== Adding a custom agent ==
+=== A custom C++ agent ===
+It is easy to extend TheSimulator to add custom agents. If the new agents are to become a part of the simulator itself (in order to increase the execution speed), the following three steps should be followed
+
+. Create a new class, say `CustomAgent`, inheriting from `Agent` and implementing its virtual methods. Look into the sources of `DoobAgent` and `BouchaudAgent` to see implementations of simple agents.
+
+. Implement `receiveMessage` to handle the agent logic and interactions with the environemnt
+
+. Add the following `else-if` clause to the method `Simulation::setupChildConfiguration` in the file `Simulation.cpp` for the simulator to recognize your agent in the input XML simulation configuration files.
+
+.Simulation.cpp
+[source,c++]
+----
+else if (nodeName == "CustomAgent") {
+    auto eaptr = std::make_unique<CustomAgent>(this);
+    eaptr->configure(*nit, configurationPath);
+    m_agentList.push_back(std::move(eaptr));
+}
+----
+
+
+Embedding a Python script is also pretty straightforward. See https://docs.python.org/3/extending/embedding.html[the official Python documentation on the topic] for more information and examples.
+
+=== Simple custom Python agent ===
+Consider the following Python code
+
+.PrintingAgent.py
+[source,python]
+----
+from thesimulator import *
+
+class PrintingAgent:
+    def configure(self, params):
+        print(" --- Configuring with the following parameters --- ")
+        print(params)
+        print(" ------------------------------------------------- ")
+    
+    def receiveMessage(self, simulation, type, payload):
+        currentTimestamp = simulation.currentTimestamp()
+        print("Received a message of type '%s' at time %d, payload %s " % (type, currentTimestamp, payload))
+----
+and the following simulation configuration
+
+.PrintingAgentExample.xml
+[source,xml]
+----
+<Simulation start="0" duration="1001">
+    <PrintingAgent name="AGENT" parameter="value" />
+</Simulation>
+----
+both located in the same directory (preferably the `cwd` for the simulator to use the execution command below).
+
+Upon running 
+[source,bash]
+----
+./TheSimulator PrintingAgentExample.xml
+----
+you should see the following in the terminal output
+```
+ExchangeSimulator v2.0
+ - 'Simulation.xml' loaded successfully
+ - starting the simulations
+ --- Configuring with the following parameters ---
+{'parameter': 'value'}
+ -------------------------------------------------
+Received a message of type 'EVENT_SIMULATION_START' at time 0, payload {}
+Received a message of type 'EVENT_SIMULATION_STOP' at time 1000, payload {}
+ - all simulations finished, exiting
+```
+
+=== Advanced custom Python agent ===
+Consider the following Python sources for a simple system consisting of a pro-rata matched exchange, regular seller, and a greedy buyer that buys everything the seller offers at the exchange, regardless of the price.
+
+.SellingAgent.py
+[source,python]
+----
+from thesimulator import *
+
+class SellingAgent:
+    def configure(self, params):
+        # save locally the configuration params passed so that they are properly typed
+        self.exchange = str(params['exchange'])
+        self.price = Money(float(params['price']))
+        self.quantity = int(params['quantity'])
+        self.interval = int(params['interval'])
+    
+    def receiveMessage(self, simulation, type, payload):
+        # Firstly, ignore all messages that should not trigger selling (i.e. order placement confirmations, etc.)
+        if type != "EVENT_SIMULATION_START" and type != "WAKE_UP":
+            return
+        
+        # Announce our intentions in the standard output
+        currentTimestamp = simulation.currentTimestamp()
+        print("%s:  Selling %d units for %s, then going to sleep until %d" % (self.name(), self.quantity, self.price.toCentString(), currentTimestamp+self.interval))
+
+        # Schedule the (first/next) wakeup message `self.interval` time units later
+        simulation.dispatchGenericMessage(currentTimestamp, self.interval, self.name(), self.name(), "WAKE_UP", {})
+
+        # Place a limit order to buy `self.quantity` units of an instrument at the price `self.price`
+        limitOrderPayload = PlaceOrderLimitPayload(OrderDirection.Sell, self.quantity, self.price)
+        simulation.dispatchMessage(currentTimestamp, 0, self.name(), self.exchange, "PLACE_ORDER_LIMIT", limitOrderPayload)
+----
+
+.BuyingAgent.py
+[source,python]
+----
+from thesimulator import *
+
+class BuyingAgent:
+    def configure(self, params):
+        # save locally the configuration params passed so that they are properly typed
+        self.exchange = str(params['exchange'])
+        self.quantity = int(params['quantity'])
+    
+    def receiveMessage(self, simulation, type, payload):
+        currentTimestamp = simulation.currentTimestamp()
+
+        if type == "EVENT_SIMULATION_START":
+            # Subscribe to receive a message of type "EVENT_ORDER_LIMIT" whenever a limit order is submitted to the exchange `self.exchange`
+            simulation.dispatchMessage(currentTimestamp, 0, self.name(), self.exchange, "SUBSCRIBE_EVENT_ORDER_LIMIT", EmptyPayload())
+            return
+        elif type != "EVENT_ORDER_LIMIT":
+            # Ignore all messages that should not trigger buying (i.e. order placement confirmations, etc.
+            return
+        
+        # Announce our intentions in the standard output
+        print("%s:   Buying %d units, then going to sleep to wait for the next order to be submitted" % (self.name(), self.quantity))
+
+        # Place a limit order to buy `self.quantity` units of an instrument at the price `self.price`
+        marketOrderPayload = PlaceOrderMarketPayload(OrderDirection.Buy, self.quantity)
+        simulation.dispatchMessage(currentTimestamp, 0, self.name(), self.exchange, "PLACE_ORDER_MARKET", marketOrderPayload)
+----
+
+We shall use the following simulation configuration
+
+.SellerBuyerExample.xml
+[source,xml]
+----
+<Simulation start="0" duration="1001">
+    <ExchangeAgent
+        name="EXCHANGE"
+        algorithm="PureProRata"
+        />
+
+    <SellingAgent
+        name="AGENT_SELLER"
+        exchange="EXCHANGE"
+
+        price="22.75"
+        quantity="100"
+        interval="200"
+        />
+    <BuyingAgent
+        name="AGENT_BUYER"
+        exchange="EXCHANGE"
+
+        quantity="100"
+        />
+    
+    <TradeLogAgent
+        name="LOGGER_TRADES"
+        exchange="EXCHANGE"
+        />
+
+</Simulation>
+----
+with both sources and the configuration file located in the same directory (preferably the `cwd` for the simulator to use the execution command below).
+
+Upon running 
+[source,bash]
+----
+./TheSimulator SellerBuyerExample.xml
+----
+you should see the following in the terminal output
+```
+ExchangeSimulator v2.0
+ - 'Simulation.xml' loaded successfully
+ - starting the simulations
+AGENT_SELLER:  Selling 100 units for 22.75, then going to sleep until 200
+AGENT_BUYER:   Buying 100 units, then going to sleep to wait for the next order to be submitted
+LOGGER_TRADES: Trade 1 occurred at time 0, matching order 2 vs. 1 (written in the BUY  direction) with volume 100 and price 22.75
+AGENT_SELLER:  Selling 100 units for 22.75, then going to sleep until 400
+AGENT_BUYER:   Buying 100 units, then going to sleep to wait for the next order to be submitted
+LOGGER_TRADES: Trade 2 occurred at time 200, matching order 4 vs. 3 (written in the BUY  direction) with volume 100 and price 22.75
+AGENT_SELLER:  Selling 100 units for 22.75, then going to sleep until 600
+AGENT_BUYER:   Buying 100 units, then going to sleep to wait for the next order to be submitted
+LOGGER_TRADES: Trade 3 occurred at time 400, matching order 6 vs. 5 (written in the BUY  direction) with volume 100 and price 22.75
+AGENT_SELLER:  Selling 100 units for 22.75, then going to sleep until 800
+AGENT_BUYER:   Buying 100 units, then going to sleep to wait for the next order to be submitted
+LOGGER_TRADES: Trade 4 occurred at time 600, matching order 8 vs. 7 (written in the BUY  direction) with volume 100 and price 22.75
+AGENT_SELLER:  Selling 100 units for 22.75, then going to sleep until 1000
+AGENT_BUYER:   Buying 100 units, then going to sleep to wait for the next order to be submitted
+LOGGER_TRADES: Trade 5 occurred at time 800, matching order 10 vs. 9 (written in the BUY  direction) with volume 100 and price 22.75
+AGENT_SELLER:  Selling 100 units for 22.75, then going to sleep until 1200
+AGENT_BUYER:   Buying 100 units, then going to sleep to wait for the next order to be submitted
+LOGGER_TRADES: Trade 6 occurred at time 1000, matching order 12 vs. 11 (written in the BUY  direction) with volume 100 and price 22.75
+ - all simulations finished, exiting
+```

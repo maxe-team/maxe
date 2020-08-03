@@ -1,0 +1,3 @@
+<Simulation start="0" duration="1001">
+    <PrintingAgent name="AGENT" parameter="value" />
+</Simulation>

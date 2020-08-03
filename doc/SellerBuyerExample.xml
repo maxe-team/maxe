@@ -1,0 +1,27 @@
+<Simulation start="0" duration="1001">
+    <ExchangeAgent
+        name="EXCHANGE"
+        algorithm="PureProRata"
+        />
+
+    <SellingAgent
+        name="AGENT_SELLER"
+        exchange="EXCHANGE"
+
+        price="22.75"
+        quantity="100"
+        interval="200"
+        />
+    <BuyingAgent
+        name="AGENT_BUYER"
+        exchange="EXCHANGE"
+
+        quantity="100"
+        />
+    
+    <TradeLogAgent
+        name="LOGGER_TRADES"
+        exchange="EXCHANGE"
+        />
+
+</Simulation>

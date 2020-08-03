@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<Simulation start="0" duration="10000001">
+    <ExchangeAgent                      
+        name="MARKET"
+        algorithm="PriceTime"           
+        />
+
+    <RandomWalkMarketMakerAgent         
+        name="TRADER_MARKET_MAKER"      
+        exchange="MARKET"               
+    
+
+        halfSpread="0.01"               
+        depth="1"              
+        p="0.5"                         
+        
+        priceStep="0.1"                 
+        timeStep="1000"
+        init="100"                      
+        lb="50"                         
+        ub="150"                        
+        />
+    
+    <DoobAgent
+        name="TRADER_DOOB"
+        exchange="MARKET"
+
+        a="99.8"                          
+        b="100.2"                         
+        tradeUnit="1"                   
+        />
+
+    <TradeLogAgent                      
+        name="LOGGER_TRADE"
+        exchange="MARKET"
+        />
+</Simulation>
