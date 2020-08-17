@@ -1,4 +1,4 @@
-# TheSimulator
+# MAXE
 
 A message driven simulator for agent-based models, primarily developed for the simulation of various financial markets. Features, among other things
 *  simulation of LOBs with customizable matching algorithm (price-time, pure pro-rata, priority pro-rata, or priority pro-rata)
@@ -8,7 +8,7 @@ A message driven simulator for agent-based models, primarily developed for the s
 *  a generic interface for design of custom agents
 
 ```
-Usage: TheSimulator [OPTIONS] [file] [params...]
+Usage: maxe [OPTIONS] [file] [params...]
   file      the simulation file to be used (default: Simulation.xml)
   params    Parameters to be passed to the simulation configuration & the
             simulation itself
@@ -27,7 +27,7 @@ Options:
 ```
 
 ## Installation
-You can build TheSimulator using the CMake configuration it comes with (CMake 3.15+ required).
+You can build MAXE using the CMake configuration it comes with (CMake 3.15+ required).
 
 On Windows you need
 * `cmake` 3.15+
@@ -58,7 +58,7 @@ cmake ../
 cmake --build .
 ```
 
-TheSimulator can then be run by executing the `TheSimulator` executable. Alternatively, CMake GUI can be used on all platforms to configure and generate makefiles (or equivalent on Windows) and then `make`.
+MAXE can then be run by executing the `TheSimulator` executable. Alternatively, CMake GUI can be used on all platforms to configure and generate makefiles (or equivalent on Windows) and then `make`.
 
 ## Embedding a Python Script
 It's pretty straightforward. See [the official Python documentation on the topic](https://docs.python.org/3/extending/embedding.html) for more info.
